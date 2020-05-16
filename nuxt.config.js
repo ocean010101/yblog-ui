@@ -43,13 +43,21 @@ module.exports = {
   */
   modules: [
     // Doc: https://axios.nuxtjs.org/usage
-    '@nuxtjs/axios'
+    '@nuxtjs/axios',
+    '@nuxtjs/proxy'
   ],
   /*
   ** Axios module configuration
   ** See https://axios.nuxtjs.org/options
   */
   axios: {
+  },
+  proxy: {
+    '/api': {
+      target: 'http://localhost:7001', // 代理'/api/xxx'请求到'http://localhost:7001'
+      pathRewrite: { '^/api': '' },
+      secure: false
+    }
   },
   /*
   ** Build configuration
