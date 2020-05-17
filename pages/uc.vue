@@ -49,6 +49,41 @@ export default {
         e.preventDefault()
       })
     },
+    blobToString (blob) {
+      return new Promise((resolve) => {
+        const reader = new FileReader()
+        reader.onload = function (event) {
+          const ret = reader.result.split('')
+            .map(v => v.charCodeAt()) // 转换成10进制ASCII
+            .map(v => v.toString(16).toUpperCase()) // 转换成16进制大写
+            .map(v => v.padStart(2, '0')) // 左侧补0
+            .join(' ')
+          // 文件里的文本会在这里被打印出来
+          // console.log(event.target.result)
+          resolve(ret)
+        }
+        reader.readAsBinaryString(blob)
+      })
+    },
+    async isGif (file) {
+      const ret = await this.blobToString(file.slice(0, 6))
+      const isGif = (ret === '47 49 46 38 39 61') || (ret === '47 49 46 38 37 61')
+      return isGif
+    },
+    async isImage (file) {
+      // 通过文件后缀判定
+      // const fileArr = file.split('.')
+      // const ext = fileArr[1]
+
+      // 通过读取文件的二进制流判定
+      // 判定文件是否为GIF格式
+      return await this.isGif(file)
+      // 判定文件是否为PNG格式
+      // return await this.isPng(file)
+      // 判定文件是否为JPG格式
+      // return this.isJpg(file)
+      // return await this.isJpg(file)
+    },
     handleFileChange (e) {
       const [file] = e.target.files
       if (!file) { return }
@@ -58,12 +93,19 @@ export default {
       if (!this.file) {
         return
       }
+      // 判断文件格式
+      if (!await this.isImage(this.file)) {
+        console.log('文件格式错误')
+        return
+      } else {
+        console.log('文件格式正确')
+      }
       const formData = new FormData()
       formData.append('name', 'file')
       formData.append('file', this.file)
 
       const ret = await this.$http.post('/uploadFile', formData, {
-        // onUploadProgress (progressEvent) { // uploadProgress 不起作用 
+        // onUploadProgress (progressEvent) { // uploadProgress 不起作用
         onUploadProgress: (progressEvent) => {
           this.uploadProgress = Number(((progressEvent.loaded / progressEvent.total) * 100).toFixed(2))
           console.log(this.uploadProgress)
