@@ -70,6 +70,11 @@ export default {
       const isGif = (ret === '47 49 46 38 39 61') || (ret === '47 49 46 38 37 61')
       return isGif
     },
+    async isPng (file) {
+      const ret = await this.blobToString(file.slice(0, 8))
+      const isPng = (ret === '89 50 4E 47 0D 0A 1A 0A')
+      return isPng
+    },
     async isImage (file) {
       // 通过文件后缀判定
       // const fileArr = file.split('.')
@@ -77,9 +82,9 @@ export default {
 
       // 通过读取文件的二进制流判定
       // 判定文件是否为GIF格式
-      return await this.isGif(file)
+      // return await this.isGif(file)
       // 判定文件是否为PNG格式
-      // return await this.isPng(file)
+      return await this.isPng(file)
       // 判定文件是否为JPG格式
       // return this.isJpg(file)
       // return await this.isJpg(file)
