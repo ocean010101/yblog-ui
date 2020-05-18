@@ -12,6 +12,10 @@
         上传
       </el-button>
     </div>
+    <div>
+      <p>计算hash的进度</p>
+      <el-progress :text-inside="true" :stroke-width="20" :percentage="hashProgress" />
+    </div>
   </div>
 </template>
 
@@ -21,7 +25,8 @@ export default {
   data () {
     return {
       file: null,
-      uploadProgress: 0
+      uploadProgress: 0,
+      hashProgress: 0
     }
   },
   async mounted () {
@@ -110,6 +115,20 @@ export default {
       }
       return chunks
     },
+    async calculateHashWorker (chunks) {
+      return await new Promise((resolve) => {
+        this.hashWorker = new Worker('/hash.js') // 创建后台任务
+        this.hashWorker.postMessage({ chunks }) // 把chunks发送到最近的外层对象
+        this.hashWorker.onmessage = (e) => { // 处理从worker回传的消息
+          const { progress, hash } = e.data
+          this.hashProgress = Number(progress.toFixed(2))
+          console.log('this.hashProgress=', this.hashProgress)
+          if (hash) {
+            resolve(hash)
+          }
+        }
+      })
+    },
     async uploadFile () {
       if (!this.file) {
         return
@@ -126,6 +145,9 @@ export default {
       const chunks = this.createFileChunk()
       console.log('chunks=', chunks)
 
+      // 计算文件hash
+      const hash = await this.calculateHashWorker(chunks)
+      console.log('uploadFile hash=', hash)
       const formData = new FormData()
       formData.append('name', 'file')
       formData.append('file', this.file)
