@@ -165,6 +165,39 @@ export default {
         window.requestIdleCallback(workLoop)
       })
     },
+    async calculateHashSimple () {
+      return await new Promise((resolve) => {
+        const spark = new SparkMD5.ArrayBuffer()
+        const reader = new FileReader()
+        const file = this.file
+        const size = file.size
+        const offset = 2 * 1024 * 1024 // 以2M为单位
+
+        // 第一个和最后一个取全部，其他部分去前中后各取两个子节
+        const chunks = [file.slice(0, offset)]
+        let cur = offset
+        while (cur < size) {
+          if (cur + offset >= size) {
+            // 最后一个区块全取
+            chunks.push(file.slice(cur, cur + offset))
+          } else {
+            // 中间的区块取前中后各两节
+            const mid = cur + offset / 2
+            const end = cur + offset
+            chunks.push(file.slice(cur, cur + 2))
+            chunks.push(file.slice(mid, mid + 2))
+            chunks.push(file.slice(end - 2, end))
+          }
+          cur += offset
+        }
+        reader.readAsArrayBuffer(new Blob(chunks))
+        reader.onload = (e) => {
+          spark.append(e.target.result) // Append array buffer
+          this.hashProgress = 100
+          resolve(spark.end())
+        }
+      })
+    },
     async uploadFile () {
       if (!this.file) {
         return
@@ -184,8 +217,10 @@ export default {
       // 计算文件hash
       // const hash = await this.calculateHashWorker(chunks)
       // console.log('uploadFile hash=', hash)
-      const hash1 = await this.calculateHashIdel(chunks)
-      console.log('uploadFile hash1=', hash1)
+      // const hash1 = await this.calculateHashIdel(chunks)
+      // console.log('uploadFile hash1=', hash1)
+      const hash = await this.calculateHashSimple()
+      console.log('uploadFile hash=', hash)
       const formData = new FormData()
       formData.append('name', 'file')
       formData.append('file', this.file)
