@@ -20,6 +20,7 @@
 </template>
 
 <script>
+import SparkMD5 from 'spark-md5'
 const CHUNK_SIZE = 0.5 * 1024 * 1024
 export default {
   data () {
@@ -129,6 +130,41 @@ export default {
         }
       })
     },
+    async calculateHashIdel (chunks) {
+      return await new Promise((resolve) => {
+        const spark = new SparkMD5.ArrayBuffer()
+        const chunksLen = chunks.length
+        let chunkIndex = 0
+        const appendToSpark = async (file) => {
+          return await new Promise((resolve) => {
+            const reader = new FileReader()
+            reader.readAsArrayBuffer(file)// 异步读取文件
+            reader.onload = (e) => { // 读取完成后触发
+              spark.append(e.target.result) // Append array buffer
+              resolve()
+            }
+          })
+        }
+        const workLoop = async (deadline) => {
+          while (chunkIndex < chunksLen && deadline.timeRemaining() > 1) {
+            // 空闲时间，且有任务
+
+            await appendToSpark(chunks[chunkIndex].file)
+            chunkIndex++
+            // hash 进度条
+            if (chunkIndex < chunksLen) {
+              this.hashProgress = Number(((100 * chunkIndex) / chunksLen).toFixed(2))
+            } else { // 计算完成
+              console.log('finished loading')
+              this.hashProgress = 100
+              resolve(spark.end())
+            }
+          }
+          window.requestIdleCallback(workLoop)
+        }
+        window.requestIdleCallback(workLoop)
+      })
+    },
     async uploadFile () {
       if (!this.file) {
         return
@@ -146,8 +182,10 @@ export default {
       console.log('chunks=', chunks)
 
       // 计算文件hash
-      const hash = await this.calculateHashWorker(chunks)
-      console.log('uploadFile hash=', hash)
+      // const hash = await this.calculateHashWorker(chunks)
+      // console.log('uploadFile hash=', hash)
+      const hash1 = await this.calculateHashIdel(chunks)
+      console.log('uploadFile hash1=', hash1)
       const formData = new FormData()
       formData.append('name', 'file')
       formData.append('file', this.file)
