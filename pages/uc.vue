@@ -16,6 +16,7 @@
 </template>
 
 <script>
+const CHUNK_SIZE = 0.5 * 1024 * 1024
 export default {
   data () {
     return {
@@ -100,6 +101,15 @@ export default {
       if (!file) { return }
       this.file = file
     },
+    createFileChunk (size = CHUNK_SIZE) {
+      const chunks = []
+      let cur = 0
+      while (cur < this.file.size) {
+        chunks.push({ index: cur, file: this.file.slice(cur, cur + size) })
+        cur += size
+      }
+      return chunks
+    },
     async uploadFile () {
       if (!this.file) {
         return
@@ -111,6 +121,11 @@ export default {
       } else {
         console.log('文件格式正确')
       }
+
+      // 文件切片
+      const chunks = this.createFileChunk()
+      console.log('chunks=', chunks)
+
       const formData = new FormData()
       formData.append('name', 'file')
       formData.append('file', this.file)
