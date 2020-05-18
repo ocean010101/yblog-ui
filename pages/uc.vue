@@ -235,7 +235,7 @@ export default {
     },
     async mergeRequest () {
       await this.$http.post('/mergeFile', {
-        ext: this.file.name.split('.').pop(), // 文件后缀
+        ext: this.getFileExt(), // 文件后缀
         size: CHUNK_SIZE,
         hash: this.hash
       })
@@ -268,6 +268,9 @@ export default {
       await Promise.all(requests)
       await this.mergeRequest()
     },
+    getFileExt () {
+      return this.file.name.split('.').pop()
+    },
     async uploadFile () {
       if (!this.file) {
         return
@@ -292,6 +295,16 @@ export default {
       const hash = await this.calculateHashSimple()
       this.hash = hash
       console.log('uploadFile hash=', hash)
+      // 询问后端 文件是否上传过， 如果没有是否有存在的切片
+      const { data: { uploaded, uploadedList } } = await this.$http.post('/checkFile', {
+        hash: this.hash,
+        ext: this.getFileExt()
+      })
+      console.log('checkFile uploaded, uploadedList==', uploaded, uploadedList)
+
+      if (uploaded) {
+        return this.$message.success('妙传成功')// 妙传
+      }
 
       // 格式化chunks为form data
       this.chunks = chunks.map((chunk, index) => {
