@@ -16,6 +16,27 @@
       <p>计算hash的进度</p>
       <el-progress :text-inside="true" :stroke-width="20" :percentage="hashProgress" />
     </div>
+    <div>
+      <!-- 网格进度条，尽可能让方块看起来是正方形 -->
+      <div class="cube-container" :style="{width: cubeWidth +'px'}">
+        <div v-for="chunk in chunks" :key="chunk.name" class="cube">
+          <div
+            :class="{
+              'uploading': chunk.progress > 0 && chunk.progress < 100,
+              'success': chunk.progress==100,
+              'error': chunk.progress<0,
+            }"
+            :style="{height: chunk.progress+'%'}"
+          >
+            <i
+              v-if="chunk.progress >0 && chunk.progress < 100"
+              class="el-icon-loading"
+              style="color:#f56c6c"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -26,8 +47,22 @@ export default {
   data () {
     return {
       file: null,
-      uploadProgress: 0,
+      // uploadProgress: 0,
+      chunks: [],
       hashProgress: 0
+    }
+  },
+  computed: {
+    cubeWidth () { // 方块宽度， 每个方块16px
+      return Math.ceil(Math.sqrt(this.chunks.length)) * 16
+    },
+    uploadProgress () {
+      if (!this.file || this.chunks.length) {
+        return 0
+      }
+      const loaded = this.chunks.map(item => item.chunk.size * item.progress) // 当前chunk上传的大小
+        .reduce((acc, cur) => acc + cur, 0) // 累加
+      return Number(((loaded * 100) / this.file.size).toFixed(2))
     }
   },
   async mounted () {
@@ -198,6 +233,26 @@ export default {
         }
       })
     },
+    async uploadChunks () {
+      const requests = this.chunks
+        .map((chunk, index) => {
+          const form = new FormData()
+          form.append('name', chunk.name)
+          form.append('hash', chunk.hash)
+          form.append('chunk', chunk.chunk)
+          return form
+        })
+        .map((form, index) => {
+          this.$http.post('/uploadFile', form, {
+            // onUploadProgress (progressEvent) { // uploadProgress 不起作用
+            onUploadProgress: (progressEvent) => {
+              this.chunks[index].progress = Number(((progressEvent.loaded / progressEvent.total) * 100).toFixed(2))
+            }
+          })
+        })
+
+      await Promise.all(requests)
+    },
     async uploadFile () {
       if (!this.file) {
         return
@@ -221,18 +276,33 @@ export default {
       // console.log('uploadFile hash1=', hash1)
       const hash = await this.calculateHashSimple()
       console.log('uploadFile hash=', hash)
-      const formData = new FormData()
-      formData.append('name', 'file')
-      formData.append('file', this.file)
 
-      const ret = await this.$http.post('/uploadFile', formData, {
-        // onUploadProgress (progressEvent) { // uploadProgress 不起作用
-        onUploadProgress: (progressEvent) => {
-          this.uploadProgress = Number(((progressEvent.loaded / progressEvent.total) * 100).toFixed(2))
-          console.log(this.uploadProgress)
+      // 格式化chunks为form data
+      this.chunks = chunks.map((chunk, index) => {
+        // 切片的名字hash + index
+        const name = hash + '-' + index
+        return {
+          hash,
+          name,
+          index,
+          chunk: chunk.file,
+          progress: 0
         }
       })
-      console.log(ret)
+      console.log('this.chunks=', this.chunks)
+      await this.uploadChunks()
+      // const formData = new FormData()
+      // formData.append('name', 'file')
+      // formData.append('file', this.file)
+
+      // const ret = await this.$http.post('/uploadFile', formData, {
+      //   // onUploadProgress (progressEvent) { // uploadProgress 不起作用
+      //   onUploadProgress: (progressEvent) => {
+      //     this.uploadProgress = Number(((progressEvent.loaded / progressEvent.total) * 100).toFixed(2))
+      //     console.log(this.uploadProgress)
+      //   }
+      // })
+      // console.log(ret)
     }
   }
 }
@@ -245,4 +315,18 @@ export default {
   border 2px dashed #eeeeee
   text-align  center
   vertical-align middle
+.cube-container
+  .cube
+    width 14px
+    height 14px
+    line-height 12px
+    border 1px black solid
+    background  #eee
+    float left
+    >.success
+      background green
+    >.uploading
+      background blue
+    >.error
+      background red
 </style>

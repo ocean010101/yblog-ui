@@ -4,9 +4,9 @@ import { MessageBox } from 'element-ui'
 const TOKEN_KEY = 'token'
 // 创建axios 示例
 const service = axios.create({
-  baseURL: '/api', // url基础地址，解决不同数据源url变化问题
+  baseURL: '/api' // url基础地址，解决不同数据源url变化问题
   // withCredentials: true, // 跨域时若要发送cookies需设置该选项
-  timeout: 5000 // 超时
+  // timeout: 5000 // 超时
 })
 export default ({ store, redirect }) => {
   // 请求拦截
