@@ -233,6 +233,13 @@ export default {
         }
       })
     },
+    async mergeRequest () {
+      await this.$http.post('/mergeFile', {
+        ext: this.file.name.split('.').pop(), // 文件后缀
+        size: CHUNK_SIZE,
+        hash: this.hash
+      })
+    },
     async uploadChunks () {
       const requests = this.chunks
         .map((chunk, index) => {
@@ -242,16 +249,24 @@ export default {
           form.append('chunk', chunk.chunk)
           return form
         })
-        .map((form, index) => {
-          this.$http.post('/uploadFile', form, {
-            // onUploadProgress (progressEvent) { // uploadProgress 不起作用
-            onUploadProgress: (progressEvent) => {
-              this.chunks[index].progress = Number(((progressEvent.loaded / progressEvent.total) * 100).toFixed(2))
-            }
-          })
+        .map((form, index) => this.$http.post('/uploadFile', form, {
+          // onUploadProgress (progressEvent) { // uploadProgress 不起作用
+          onUploadProgress: (progressEvent) => {
+            this.chunks[index].progress = Number(((progressEvent.loaded / progressEvent.total) * 100).toFixed(2))
+          }
         })
-
+        )
+        // .map(async (form, index) => {
+        //   await this.$http.post('/uploadFile', form, {
+        //   // onUploadProgress (progressEvent) { // uploadProgress 不起作用
+        //     onUploadProgress: (progressEvent) => {
+        //       this.chunks[index].progress = Number(((progressEvent.loaded / progressEvent.total) * 100).toFixed(2))
+        //     }
+        //   })
+        // }
+        // )
       await Promise.all(requests)
+      await this.mergeRequest()
     },
     async uploadFile () {
       if (!this.file) {
@@ -275,6 +290,7 @@ export default {
       // const hash1 = await this.calculateHashIdel(chunks)
       // console.log('uploadFile hash1=', hash1)
       const hash = await this.calculateHashSimple()
+      this.hash = hash
       console.log('uploadFile hash=', hash)
 
       // 格式化chunks为form data
