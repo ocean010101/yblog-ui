@@ -240,6 +240,41 @@ export default {
         hash: this.hash
       })
     },
+    async sendRequest (chunks, limit = 4) {
+      // Limit 并发数
+      // 思路： 使用一个数据记录要上传的任务
+      return await new Promise((resolve) => {
+        const len = chunks.length
+        let count = 0
+        const start = async () => {
+          const task = chunks.shift() // 从任务数组
+          if (task) {
+            const { form, index } = task
+            await this.$http.post('/uploadFile', form, {
+              // onUploadProgress (progressEvent) { // uploadProgress 不起作用
+              onUploadProgress: (progressEvent) => {
+                this.chunks[index].progress = Number(((progressEvent.loaded / progressEvent.total) * 100).toFixed(2))
+              }
+            })
+            if (count === len - 1) { // 最后一个任务
+              resolve()
+            } else {
+              count++
+              start() // 启动下一个任务
+            }
+          }
+        }
+        // 启动任务
+        while (limit > 0) {
+          // 启动limit个任务
+          setTimeout(() => {
+            start()
+          }, Math.random() * 2000)
+          // start()
+          limit -= 1
+        }
+      })
+    },
     async uploadChunks (uploadedList = []) {
       const requests = this.chunks
         .filter(chunk => !uploadedList.includes(chunk.name))
@@ -250,13 +285,13 @@ export default {
           form.append('chunk', chunk.chunk)
           return { form, index: chunk.index }
         })
-        .map(({ form, index }) => this.$http.post('/uploadFile', form, {
-          // onUploadProgress (progressEvent) { // uploadProgress 不起作用
-          onUploadProgress: (progressEvent) => {
-            this.chunks[index].progress = Number(((progressEvent.loaded / progressEvent.total) * 100).toFixed(2))
-          }
-        })
-        )
+        // .map(({ form, index }) => this.$http.post('/uploadFile', form, {
+        //   // onUploadProgress (progressEvent) { // uploadProgress 不起作用
+        //   onUploadProgress: (progressEvent) => {
+        //     this.chunks[index].progress = Number(((progressEvent.loaded / progressEvent.total) * 100).toFixed(2))
+        //   }
+        // })
+        // )
         // .map(async (form, index) => {
         //   await this.$http.post('/uploadFile', form, {
         //   // onUploadProgress (progressEvent) { // uploadProgress 不起作用
@@ -266,7 +301,9 @@ export default {
         //   })
         // }
         // )
-      await Promise.all(requests)
+      // 尝试申请tcp请求过多 会使浏览器卡顿
+      // await Promise.all(requests)
+      await this.sendRequest(requests)
       await this.mergeRequest()
     },
     getFileExt () {
