@@ -240,16 +240,17 @@ export default {
         hash: this.hash
       })
     },
-    async uploadChunks () {
+    async uploadChunks (uploadedList = []) {
       const requests = this.chunks
+        .filter(chunk => !uploadedList.includes(chunk.name))
         .map((chunk, index) => {
           const form = new FormData()
           form.append('name', chunk.name)
           form.append('hash', chunk.hash)
           form.append('chunk', chunk.chunk)
-          return form
+          return { form, index: chunk.index }
         })
-        .map((form, index) => this.$http.post('/uploadFile', form, {
+        .map(({ form, index }) => this.$http.post('/uploadFile', form, {
           // onUploadProgress (progressEvent) { // uploadProgress 不起作用
           onUploadProgress: (progressEvent) => {
             this.chunks[index].progress = Number(((progressEvent.loaded / progressEvent.total) * 100).toFixed(2))
@@ -315,11 +316,11 @@ export default {
           name,
           index,
           chunk: chunk.file,
-          progress: 0
+          progress: uploadedList.includes(name) ? 100 : 0 // 设置进度条， 已经上传的， 设为100
         }
       })
       console.log('this.chunks=', this.chunks)
-      await this.uploadChunks()
+      await this.uploadChunks(uploadedList)
       // const formData = new FormData()
       // formData.append('name', 'file')
       // formData.append('file', this.file)
